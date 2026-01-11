@@ -13,8 +13,10 @@ from qtpy.QtWidgets import (
     QLabel,
     QGroupBox,
     QMessageBox,
+    QComboBox,
 )
 from qtpy.QtCore import Qt, QThread, Signal
+from qtpy.QtGui import QFont
 
 from vibeslurm.slurm import SlurmCommands, SlurmError
 
@@ -58,6 +60,13 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("VibeSLURM - SLURM Job Monitor")
         self.setMinimumSize(600, 400)
 
+        # Menu bar
+        menubar = self.menuBar()
+        view_menu = menubar.addMenu("View")
+        clear_action = view_menu.addAction("Clear Output")
+        clear_action.setShortcut("Ctrl+L")
+        clear_action.triggered.connect(lambda: self.output_text.clear())
+
         # Central widget
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
@@ -86,7 +95,8 @@ class MainWindow(QMainWindow):
         control_group = QGroupBox("Job Control")
         control_layout = QHBoxLayout()
 
-        self.job_id_input = QLineEdit()
+        self.job_id_input = QComboBox()
+        self.job_id_input.setEditable(True)
         self.job_id_input.setPlaceholderText("Job ID")
         control_layout.addWidget(QLabel("Job ID:"))
         control_layout.addWidget(self.job_id_input)
@@ -113,7 +123,8 @@ class MainWindow(QMainWindow):
 
         self.output_text = QTextEdit()
         self.output_text.setReadOnly(True)
-        self.output_text.setMinimumHeight(300)
+        self.output_text.setMinimumHeight(100)
+        self.output_text.setFont(QFont("Courier", 10))
         output_layout.addWidget(self.output_text)
 
         output_group.setLayout(output_layout)
@@ -141,6 +152,29 @@ class MainWindow(QMainWindow):
         self.output_text.append("\n" + "─" * 40 + "\n")
         self.statusBar().showMessage("Command completed successfully", 3000)
 
+        # If this was an squeue command, parse job IDs
+        if self.current_command and self.current_command.startswith("squeue"):
+            self.populate_job_ids(output)
+
+    def populate_job_ids(self, squeue_output: str):
+        """Parse squeue output and populate job ID dropdown."""
+        self.job_id_input.clear()
+        job_ids = []
+
+        for line in squeue_output.strip().split("\n"):
+            # Skip header line and empty lines
+            if line.strip() and not line.strip().startswith("JOBID"):
+                # Job ID is the first column
+                parts = line.split()
+                if parts:
+                    job_id = parts[0].strip()
+                    if job_id.isdigit():
+                        job_ids.append(job_id)
+
+        if job_ids:
+            self.job_id_input.addItems(job_ids)
+            self.statusBar().showMessage(f"Found {len(job_ids)} job(s)", 2000)
+
     def on_command_error(self, error: str):
         """Handle command execution error."""
         self.output_text.append(f"❌ Error: {error}\n")
@@ -158,9 +192,9 @@ class MainWindow(QMainWindow):
 
     def on_scancel(self):
         """Handle scancel button click."""
-        job_id = self.job_id_input.text().strip()
+        job_id = self.job_id_input.currentText().strip()
         if not job_id:
-            QMessageBox.warning(self, "Input Error", "Please enter a Job ID")
+            QMessageBox.warning(self, "Input Error", "Please enter or select a Job ID")
             return
 
         reply = QMessageBox.question(
@@ -178,9 +212,9 @@ class MainWindow(QMainWindow):
 
     def on_job_info(self):
         """Handle job info button click."""
-        job_id = self.job_id_input.text().strip()
+        job_id = self.job_id_input.currentText().strip()
         if not job_id:
-            QMessageBox.warning(self, "Input Error", "Please enter a Job ID")
+            QMessageBox.warning(self, "Input Error", "Please enter or select a Job ID")
             return
 
         self.output_text.append(f"ℹ️ Getting info for job {job_id}...\n")
