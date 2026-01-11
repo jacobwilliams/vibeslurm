@@ -18,6 +18,7 @@ from qtpy.QtWidgets import (
     QTableWidgetItem,
     QHeaderView,
     QSplitter,
+    QFileDialog,
 )
 from qtpy.QtCore import Qt, QThread, Signal
 from qtpy.QtGui import QFont, QColor
@@ -66,6 +67,14 @@ class MainWindow(QMainWindow):
 
         # Menu bar
         menubar = self.menuBar()
+
+        # Job menu
+        job_menu = menubar.addMenu("Job")
+        submit_action = job_menu.addAction("Submit Job...")
+        submit_action.setShortcut("Ctrl+S")
+        submit_action.triggered.connect(self.on_submit_job)
+
+        # View menu
         view_menu = menubar.addMenu("View")
         clear_action = view_menu.addAction("Clear Console")
         clear_action.setShortcut("Ctrl+L")
@@ -197,6 +206,10 @@ class MainWindow(QMainWindow):
 
         # If this was a cancel command, refresh the queue
         elif self.current_command and self.current_command.startswith("scancel"):
+            self.on_squeue()
+
+        # If this was an sbatch command, refresh the queue
+        elif self.current_command and self.current_command.startswith("sbatch"):
             self.on_squeue()
 
     def get_state_color(self, state: str) -> QColor:
@@ -427,3 +440,26 @@ class MainWindow(QMainWindow):
         self.append_output(f"📄 Reading stderr for job {job_id}...\n")
         cmd_name = f"cat stderr for job {job_id}"
         self.run_slurm_command(cmd_name, self.slurm.read_job_output, job_id, "stderr")
+
+    def on_submit_job(self):
+        """Handle submit job menu action."""
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Select Batch Script to Submit",
+            "",
+            "Batch Scripts (*.sh *.slurm *.sbatch);;All Files (*)"
+        )
+
+        if file_path:
+            reply = QMessageBox.question(
+                self,
+                "Confirm Submission",
+                f"Submit batch script:\n{file_path}\n\nContinue?",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.Yes
+            )
+
+            if reply == QMessageBox.Yes:
+                self.append_output(f"📤 Submitting batch script: {file_path}...\n")
+                cmd_name = f"sbatch {file_path}"
+                self.run_slurm_command(cmd_name, self.slurm.sbatch, file_path)
