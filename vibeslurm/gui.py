@@ -195,6 +195,10 @@ class MainWindow(QMainWindow):
         if self.current_command and self.current_command.startswith("squeue"):
             self.populate_job_ids(output)
 
+        # If this was a cancel command, refresh the queue
+        elif self.current_command and self.current_command.startswith("scancel"):
+            self.on_squeue()
+
     def populate_job_ids(self, squeue_output: str):
         """Parse squeue output and populate job table."""
         self.job_table.setRowCount(0)
