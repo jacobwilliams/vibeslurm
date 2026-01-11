@@ -76,6 +76,22 @@ class SlurmCommands:
             raise SlurmError(f"scancel failed: {stderr}")
         return stdout or f"Job {job_id} cancelled successfully"
 
+    def scancel_all(self, user: str) -> str:
+        """
+        Cancel all jobs for a user.
+
+        Args:
+            user: Username whose jobs to cancel
+
+        Returns:
+            Command output
+        """
+        cmd = ["scancel", "-u", user]
+        stdout, stderr, returncode = self.run_command(cmd)
+        if returncode != 0:
+            raise SlurmError(f"scancel failed: {stderr}")
+        return stdout or f"All jobs for user {user} cancelled successfully"
+
     def sbatch(self, script_path: str) -> str:
         """
         Submit a batch script.

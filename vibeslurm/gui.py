@@ -25,9 +25,10 @@ class SlurmWorker(QThread):
     finished = Signal(str)
     error = Signal(str)
 
-    def __init__(self, command_func, *args, **kwargs):
+    def __init__(self, command_func, command_name, *args, **kwargs):
         super().__init__()
         self.command_func = command_func
+        self.command_name = command_name
         self.args = args
         self.kwargs = kwargs
 
@@ -49,12 +50,13 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.slurm = SlurmCommands()
         self.worker = None
+        self.current_command = None
         self.init_ui()
 
     def init_ui(self):
         """Initialize the user interface."""
         self.setWindowTitle("VibeSLURM - SLURM Job Monitor")
-        self.setMinimumSize(800, 600)
+        self.setMinimumSize(600, 400)
 
         # Central widget
         central_widget = QWidget()
@@ -97,6 +99,11 @@ class MainWindow(QMainWindow):
         self.job_info_btn.clicked.connect(self.on_job_info)
         control_layout.addWidget(self.job_info_btn)
 
+        self.cancel_all_btn = QPushButton("Cancel All Jobs")
+        self.cancel_all_btn.clicked.connect(self.on_scancel_all)
+        self.cancel_all_btn.setStyleSheet("background-color: #d9534f; color: white;")
+        control_layout.addWidget(self.cancel_all_btn)
+
         control_group.setLayout(control_layout)
         layout.addWidget(control_group)
 
@@ -115,14 +122,15 @@ class MainWindow(QMainWindow):
         # Status bar
         self.statusBar().showMessage("Ready")
 
-    def run_slurm_command(self, command_func, *args, **kwargs):
+    def run_slurm_command(self, command_name, command_func, *args, **kwargs):
         """Run a SLURM command in a worker thread."""
         if self.worker and self.worker.isRunning():
             self.output_text.append("⚠️ A command is already running...\n")
             return
 
-        self.statusBar().showMessage("Running command...")
-        self.worker = SlurmWorker(command_func, *args, **kwargs)
+        self.current_command = command_name
+        self.statusBar().showMessage(f"Running: {command_name}")
+        self.worker = SlurmWorker(command_func, command_name, *args, **kwargs)
         self.worker.finished.connect(self.on_command_success)
         self.worker.error.connect(self.on_command_error)
         self.worker.start()
@@ -130,21 +138,23 @@ class MainWindow(QMainWindow):
     def on_command_success(self, output: str):
         """Handle successful command execution."""
         self.output_text.append(output)
-        self.output_text.append("\n" + "=" * 80 + "\n")
+        self.output_text.append("\n" + "─" * 40 + "\n")
         self.statusBar().showMessage("Command completed successfully", 3000)
 
     def on_command_error(self, error: str):
         """Handle command execution error."""
         self.output_text.append(f"❌ Error: {error}\n")
-        self.output_text.append("\n" + "=" * 80 + "\n")
-        self.statusBar().showMessage("Command failed", 3000)
+        self.output_text.append("\n" + "─" * 40 + "\n")
+        status_msg = f"Command failed: {self.current_command}" if self.current_command else "Command failed"
+        self.statusBar().showMessage(status_msg, 5000)
         QMessageBox.warning(self, "Error", error)
 
     def on_squeue(self):
         """Handle squeue button click."""
         user = self.user_input.text().strip() or None
-        self.output_text.append(f"🔄 Running squeue{f' for user {user}' if user else ''}...\n")
-        self.run_slurm_command(self.slurm.squeue, user=user)
+        cmd_name = f"squeue -u {user}" if user else "squeue"
+        self.output_text.append(f"🔄 Running {cmd_name}...\n")
+        self.run_slurm_command(cmd_name, self.slurm.squeue, user=user)
 
     def on_scancel(self):
         """Handle scancel button click."""
@@ -162,8 +172,9 @@ class MainWindow(QMainWindow):
         )
 
         if reply == QMessageBox.Yes:
+            cmd_name = f"scancel {job_id}"
             self.output_text.append(f"🛑 Cancelling job {job_id}...\n")
-            self.run_slurm_command(self.slurm.scancel, job_id)
+            self.run_slurm_command(cmd_name, self.slurm.scancel, job_id)
 
     def on_job_info(self):
         """Handle job info button click."""
@@ -173,4 +184,25 @@ class MainWindow(QMainWindow):
             return
 
         self.output_text.append(f"ℹ️ Getting info for job {job_id}...\n")
-        self.run_slurm_command(self.slurm.scontrol_show_job, job_id)
+        cmd_name = f"scontrol show job {job_id}"
+        self.run_slurm_command(cmd_name, self.slurm.scontrol_show_job, job_id)
+
+    def on_scancel_all(self):
+        """Handle cancel all jobs button click."""
+        user = self.user_input.text().strip()
+        if not user:
+            QMessageBox.warning(self, "Input Error", "Please enter a username")
+            return
+
+        reply = QMessageBox.question(
+            self,
+            "Confirm Cancellation",
+            f"Are you sure you want to cancel ALL jobs for user {user}?\n\nThis cannot be undone!",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
+
+        if reply == QMessageBox.Yes:
+            cmd_name = f"scancel -u {user}"
+            self.output_text.append(f"🛑 Cancelling all jobs for user {user}...\n")
+            self.run_slurm_command(cmd_name, self.slurm.scancel_all, user)
