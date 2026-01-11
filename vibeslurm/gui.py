@@ -1,5 +1,7 @@
 """Main GUI window for vibeslurm."""
 
+import getpass
+
 from qtpy.QtWidgets import (
     QMainWindow,
     QWidget,
@@ -65,6 +67,7 @@ class MainWindow(QMainWindow):
 
         squeue_controls = QHBoxLayout()
         self.user_input = QLineEdit()
+        self.user_input.setText(getpass.getuser())
         self.user_input.setPlaceholderText("Username (optional)")
         squeue_controls.addWidget(QLabel("User:"))
         squeue_controls.addWidget(self.user_input)
