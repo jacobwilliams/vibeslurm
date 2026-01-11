@@ -1,0 +1,14 @@
+[workspace]
+authors = ["Jacob Williams <jacobwilliams@users.noreply.github.com>"]
+channels = ["conda-forge"]
+name = "env"
+platforms = ["osx-arm64"]
+version = "0.1.0"
+
+[tasks]
+
+[dependencies]
+python = ">=3.14.2,<3.15"
+qtpy = ">=2.4.3,<3"
+pyside6 = ">=6.10.1,<7"
+pytest = ">=9.0.2,<10"
