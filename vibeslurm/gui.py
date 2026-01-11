@@ -20,7 +20,7 @@ from qtpy.QtWidgets import (
     QSplitter,
 )
 from qtpy.QtCore import Qt, QThread, Signal
-from qtpy.QtGui import QFont
+from qtpy.QtGui import QFont, QColor
 
 from vibeslurm.slurm import SlurmCommands, SlurmError
 
@@ -199,6 +199,50 @@ class MainWindow(QMainWindow):
         elif self.current_command and self.current_command.startswith("scancel"):
             self.on_squeue()
 
+    def get_state_color(self, state: str) -> QColor:
+        """Get color for a job state."""
+        state_colors = {
+            # Running states - green
+            'R': QColor(144, 238, 144),  # Light green
+            'RUNNING': QColor(144, 238, 144),
+
+            # Pending states - yellow/orange
+            'PD': QColor(255, 255, 153),  # Light yellow
+            'PENDING': QColor(255, 255, 153),
+            'CF': QColor(255, 229, 153),  # Light orange (configuring)
+            'CONFIGURING': QColor(255, 229, 153),
+
+            # Completing states - light blue
+            'CG': QColor(173, 216, 230),  # Light blue
+            'COMPLETING': QColor(173, 216, 230),
+
+            # Completed - pale green
+            'CD': QColor(200, 255, 200),
+            'COMPLETED': QColor(200, 255, 200),
+
+            # Failed/Error states - red/pink
+            'F': QColor(255, 182, 193),  # Light pink
+            'FAILED': QColor(255, 182, 193),
+            'TO': QColor(255, 160, 160),  # Darker pink (timeout)
+            'TIMEOUT': QColor(255, 160, 160),
+            'NF': QColor(255, 160, 160),  # Node fail
+            'NODE_FAIL': QColor(255, 160, 160),
+            'OOM': QColor(255, 160, 160),  # Out of memory
+
+            # Cancelled - gray
+            'CA': QColor(211, 211, 211),  # Light gray
+            'CANCELLED': QColor(211, 211, 211),
+
+            # Suspended - lavender
+            'S': QColor(216, 191, 216),
+            'SUSPENDED': QColor(216, 191, 216),
+
+            # Preempted - orange
+            'PR': QColor(255, 200, 124),
+            'PREEMPTED': QColor(255, 200, 124),
+        }
+        return state_colors.get(state, QColor(255, 255, 255))  # Default white
+
     def populate_job_ids(self, squeue_output: str):
         """Parse squeue output and populate job table."""
         self.job_table.setRowCount(0)
@@ -230,17 +274,31 @@ class MainWindow(QMainWindow):
                 if job_id.isdigit():
                     job_count += 1
 
+                    # Get color for this job state
+                    state_color = self.get_state_color(state)
+
                     # Add to table
                     row = self.job_table.rowCount()
                     self.job_table.insertRow(row)
-                    self.job_table.setItem(row, 0, QTableWidgetItem(job_id))
-                    self.job_table.setItem(row, 1, QTableWidgetItem(partition))
-                    self.job_table.setItem(row, 2, QTableWidgetItem(name))
-                    self.job_table.setItem(row, 3, QTableWidgetItem(user))
-                    self.job_table.setItem(row, 4, QTableWidgetItem(state))
-                    self.job_table.setItem(row, 5, QTableWidgetItem(time))
-                    self.job_table.setItem(row, 6, QTableWidgetItem(nodes))
-                    self.job_table.setItem(row, 7, QTableWidgetItem(nodelist))
+
+                    # Create items
+                    items = [
+                        QTableWidgetItem(job_id),
+                        QTableWidgetItem(partition),
+                        QTableWidgetItem(name),
+                        QTableWidgetItem(user),
+                        QTableWidgetItem(state),
+                        QTableWidgetItem(time),
+                        QTableWidgetItem(nodes),
+                        QTableWidgetItem(nodelist),
+                    ]
+
+                    for col, item in enumerate(items):
+                        # Only color the State column (index 4)
+                        if col == 4:
+                            item.setBackground(state_color)
+                            item.setForeground(QColor(0, 0, 0))  # Black text
+                        self.job_table.setItem(row, col, item)
 
         if job_count > 0:
             self.statusBar().showMessage(f"Found {job_count} job(s)", 2000)
