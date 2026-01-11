@@ -12,7 +12,7 @@ pixi run --manifest-path ./env/pixi.toml python -m vibeslurm
 
 ### Dependencies
 
-* [QtPy](https://github.com/spyder-ide/qtpy) (with PyQt or PySide). Tested with PysSide6.
+* [QtPy](https://github.com/spyder-ide/qtpy) (with PyQt or PySide). Tested with PySide6.
 
 ### References
 
