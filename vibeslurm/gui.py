@@ -14,6 +14,10 @@ from qtpy.QtWidgets import (
     QGroupBox,
     QMessageBox,
     QComboBox,
+    QTableWidget,
+    QTableWidgetItem,
+    QHeaderView,
+    QSplitter,
 )
 from qtpy.QtCore import Qt, QThread, Signal
 from qtpy.QtGui import QFont
@@ -63,7 +67,7 @@ class MainWindow(QMainWindow):
         # Menu bar
         menubar = self.menuBar()
         view_menu = menubar.addMenu("View")
-        clear_action = view_menu.addAction("Clear Output")
+        clear_action = view_menu.addAction("Clear Console")
         clear_action.setShortcut("Ctrl+L")
         clear_action.triggered.connect(lambda: self.output_text.clear())
 
@@ -91,34 +95,51 @@ class MainWindow(QMainWindow):
         squeue_group.setLayout(squeue_layout)
         layout.addWidget(squeue_group)
 
-        # Job control section
-        control_group = QGroupBox("Job Control")
-        control_layout = QHBoxLayout()
+        # Create splitter for resizable sections
+        splitter = QSplitter(Qt.Vertical)
 
-        self.job_id_input = QComboBox()
-        self.job_id_input.setEditable(True)
-        self.job_id_input.setPlaceholderText("Job ID")
-        control_layout.addWidget(QLabel("Job ID:"))
-        control_layout.addWidget(self.job_id_input)
+        # Job info table
+        table_group = QGroupBox("Job Information")
+        table_layout = QVBoxLayout()
+
+        self.job_table = QTableWidget()
+        self.job_table.setColumnCount(8)
+        self.job_table.setHorizontalHeaderLabels([
+            "Job ID", "Partition", "Name", "User", "State", "Time", "Nodes", "Nodelist"
+        ])
+        self.job_table.horizontalHeader().setStretchLastSection(True)
+        self.job_table.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
+        self.job_table.setAlternatingRowColors(True)
+        self.job_table.setSelectionBehavior(QTableWidget.SelectRows)
+        self.job_table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.job_table.setMinimumHeight(150)
+        self.job_table.itemDoubleClicked.connect(self.on_table_double_click)
+
+        table_layout.addWidget(self.job_table)
+
+        # Job control buttons
+        buttons_layout = QHBoxLayout()
 
         self.cancel_btn = QPushButton("Cancel Job")
         self.cancel_btn.clicked.connect(self.on_scancel)
-        control_layout.addWidget(self.cancel_btn)
+        buttons_layout.addWidget(self.cancel_btn)
 
         self.job_info_btn = QPushButton("Job Info")
         self.job_info_btn.clicked.connect(self.on_job_info)
-        control_layout.addWidget(self.job_info_btn)
+        buttons_layout.addWidget(self.job_info_btn)
 
         self.cancel_all_btn = QPushButton("Cancel All Jobs")
         self.cancel_all_btn.clicked.connect(self.on_scancel_all)
         self.cancel_all_btn.setStyleSheet("background-color: #d9534f; color: white;")
-        control_layout.addWidget(self.cancel_all_btn)
+        buttons_layout.addWidget(self.cancel_all_btn)
 
-        control_group.setLayout(control_layout)
-        layout.addWidget(control_group)
+        table_layout.addLayout(buttons_layout)
+
+        table_group.setLayout(table_layout)
+        splitter.addWidget(table_group)
 
         # Output display
-        output_group = QGroupBox("Output")
+        output_group = QGroupBox("Console")
         output_layout = QVBoxLayout()
 
         self.output_text = QTextEdit()
@@ -128,7 +149,12 @@ class MainWindow(QMainWindow):
         output_layout.addWidget(self.output_text)
 
         output_group.setLayout(output_layout)
-        layout.addWidget(output_group)
+        splitter.addWidget(output_group)
+
+        # Set initial splitter sizes (60% table, 40% output)
+        splitter.setSizes([300, 200])
+
+        layout.addWidget(splitter)
 
         # Status bar
         self.statusBar().showMessage("Ready")
@@ -162,24 +188,55 @@ class MainWindow(QMainWindow):
             self.populate_job_ids(output)
 
     def populate_job_ids(self, squeue_output: str):
-        """Parse squeue output and populate job ID dropdown."""
-        self.job_id_input.clear()
-        job_ids = []
+        """Parse squeue output and populate job table."""
+        self.job_table.setRowCount(0)
+        job_count = 0
 
-        for line in squeue_output.strip().split("\n"):
-            # Skip header line and empty lines
-            if line.strip() and not line.strip().startswith("JOBID"):
-                # Job ID is the first column
-                parts = line.split()
-                if parts:
-                    job_id = parts[0].strip()
-                    if job_id.isdigit():
-                        job_ids.append(job_id)
+        lines = squeue_output.strip().split("\n")
+        if not lines:
+            return
 
-        if job_ids:
-            self.job_id_input.addItems(job_ids)
-            self.job_id_input.setCurrentIndex(0)
-            self.statusBar().showMessage(f"Found {len(job_ids)} job(s)", 2000)
+        # Process each line
+        for line in lines:
+            line = line.strip()
+            if not line or line.startswith("JOBID"):
+                continue
+
+            # Parse the line - typical squeue format:
+            # JOBID PARTITION NAME USER ST TIME NODES NODELIST(REASON)
+            parts = line.split()
+            if len(parts) >= 8:
+                job_id = parts[0]
+                partition = parts[1]
+                name = parts[2]
+                user = parts[3]
+                state = parts[4]
+                time = parts[5]
+                nodes = parts[6]
+                nodelist = " ".join(parts[7:])  # Handle multi-word nodelist
+
+                if job_id.isdigit():
+                    job_count += 1
+
+                    # Add to table
+                    row = self.job_table.rowCount()
+                    self.job_table.insertRow(row)
+                    self.job_table.setItem(row, 0, QTableWidgetItem(job_id))
+                    self.job_table.setItem(row, 1, QTableWidgetItem(partition))
+                    self.job_table.setItem(row, 2, QTableWidgetItem(name))
+                    self.job_table.setItem(row, 3, QTableWidgetItem(user))
+                    self.job_table.setItem(row, 4, QTableWidgetItem(state))
+                    self.job_table.setItem(row, 5, QTableWidgetItem(time))
+                    self.job_table.setItem(row, 6, QTableWidgetItem(nodes))
+                    self.job_table.setItem(row, 7, QTableWidgetItem(nodelist))
+
+        if job_count > 0:
+            self.statusBar().showMessage(f"Found {job_count} job(s)", 2000)
+            # Select the first row by default
+            self.job_table.selectRow(0)
+
+        # Auto-resize columns to content
+        self.job_table.resizeColumnsToContents()
 
     def on_command_error(self, error: str):
         """Handle command execution error."""
@@ -198,10 +255,17 @@ class MainWindow(QMainWindow):
 
     def on_scancel(self):
         """Handle scancel button click."""
-        job_id = self.job_id_input.currentText().strip()
-        if not job_id:
-            QMessageBox.warning(self, "Input Error", "Please enter or select a Job ID")
+        selected_rows = self.job_table.selectedIndexes()
+        if not selected_rows:
+            QMessageBox.warning(self, "Input Error", "Please select a job from the table")
             return
+
+        row = selected_rows[0].row()
+        job_id_item = self.job_table.item(row, 0)
+        if not job_id_item:
+            return
+
+        job_id = job_id_item.text()
 
         reply = QMessageBox.question(
             self,
@@ -218,10 +282,17 @@ class MainWindow(QMainWindow):
 
     def on_job_info(self):
         """Handle job info button click."""
-        job_id = self.job_id_input.currentText().strip()
-        if not job_id:
-            QMessageBox.warning(self, "Input Error", "Please enter or select a Job ID")
+        selected_rows = self.job_table.selectedIndexes()
+        if not selected_rows:
+            QMessageBox.warning(self, "Input Error", "Please select a job from the table")
             return
+
+        row = selected_rows[0].row()
+        job_id_item = self.job_table.item(row, 0)
+        if not job_id_item:
+            return
+
+        job_id = job_id_item.text()
 
         self.append_output(f"ℹ️ Getting info for job {job_id}...\n")
         cmd_name = f"scontrol show job {job_id}"
@@ -246,3 +317,7 @@ class MainWindow(QMainWindow):
             cmd_name = f"scancel -u {user}"
             self.append_output(f"🛑 Cancelling all jobs for user {user}...\n")
             self.run_slurm_command(cmd_name, self.slurm.scancel_all, user)
+
+    def on_table_double_click(self, item):
+        """Handle double-click on table row to show job info."""
+        self.on_job_info()
