@@ -123,3 +123,58 @@ class SlurmCommands:
         if returncode != 0:
             raise SlurmError(f"scontrol failed: {stderr}")
         return stdout
+
+    def get_job_output_files(self, job_id: str) -> tuple[Optional[str], Optional[str]]:
+        """
+        Get stdout and stderr file paths for a job.
+
+        Args:
+            job_id: Job ID to query
+
+        Returns:
+            Tuple of (stdout_path, stderr_path)
+        """
+        output = self.scontrol_show_job(job_id)
+        stdout_path = None
+        stderr_path = None
+
+        for line in output.split('\n'):
+            line = line.strip()
+            if 'StdOut=' in line:
+                parts = line.split('StdOut=')
+                if len(parts) > 1:
+                    stdout_path = parts[1].split()[0]
+            if 'StdErr=' in line:
+                parts = line.split('StdErr=')
+                if len(parts) > 1:
+                    stderr_path = parts[1].split()[0]
+
+        return stdout_path, stderr_path
+
+    def read_job_output(self, job_id: str, output_type: str = "stdout") -> str:
+        """
+        Read stdout or stderr file for a job.
+
+        Args:
+            job_id: Job ID to query
+            output_type: Either 'stdout' or 'stderr'
+
+        Returns:
+            File contents
+        """
+        stdout_path, stderr_path = self.get_job_output_files(job_id)
+        file_path = stdout_path if output_type == "stdout" else stderr_path
+
+        if not file_path:
+            raise SlurmError(f"No {output_type} file found for job {job_id}")
+
+        try:
+            with open(file_path, 'r') as f:
+                content = f.read()
+            return content if content else f"(Empty {output_type} file)"
+        except FileNotFoundError:
+            raise SlurmError(f"{output_type} file not found: {file_path}")
+        except PermissionError:
+            raise SlurmError(f"Permission denied reading {output_type} file: {file_path}")
+        except Exception as e:
+            raise SlurmError(f"Error reading {output_type} file: {e}")

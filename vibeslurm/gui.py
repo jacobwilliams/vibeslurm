@@ -128,6 +128,14 @@ class MainWindow(QMainWindow):
         self.job_info_btn.clicked.connect(self.on_job_info)
         buttons_layout.addWidget(self.job_info_btn)
 
+        self.stdout_btn = QPushButton("View StdOut")
+        self.stdout_btn.clicked.connect(self.on_view_stdout)
+        buttons_layout.addWidget(self.stdout_btn)
+
+        self.stderr_btn = QPushButton("View StdErr")
+        self.stderr_btn.clicked.connect(self.on_view_stderr)
+        buttons_layout.addWidget(self.stderr_btn)
+
         self.cancel_all_btn = QPushButton("Cancel All Jobs")
         self.cancel_all_btn.clicked.connect(self.on_scancel_all)
         self.cancel_all_btn.setStyleSheet("background-color: #d9534f; color: white;")
@@ -321,3 +329,39 @@ class MainWindow(QMainWindow):
     def on_table_double_click(self, item):
         """Handle double-click on table row to show job info."""
         self.on_job_info()
+
+    def on_view_stdout(self):
+        """Handle view stdout button click."""
+        selected_rows = self.job_table.selectedIndexes()
+        if not selected_rows:
+            QMessageBox.warning(self, "Input Error", "Please select a job from the table")
+            return
+
+        row = selected_rows[0].row()
+        job_id_item = self.job_table.item(row, 0)
+        if not job_id_item:
+            return
+
+        job_id = job_id_item.text()
+
+        self.append_output(f"📄 Reading stdout for job {job_id}...\n")
+        cmd_name = f"cat stdout for job {job_id}"
+        self.run_slurm_command(cmd_name, self.slurm.read_job_output, job_id, "stdout")
+
+    def on_view_stderr(self):
+        """Handle view stderr button click."""
+        selected_rows = self.job_table.selectedIndexes()
+        if not selected_rows:
+            QMessageBox.warning(self, "Input Error", "Please select a job from the table")
+            return
+
+        row = selected_rows[0].row()
+        job_id_item = self.job_table.item(row, 0)
+        if not job_id_item:
+            return
+
+        job_id = job_id_item.text()
+
+        self.append_output(f"📄 Reading stderr for job {job_id}...\n")
+        cmd_name = f"cat stderr for job {job_id}"
+        self.run_slurm_command(cmd_name, self.slurm.read_job_output, job_id, "stderr")
