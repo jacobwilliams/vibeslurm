@@ -19,11 +19,129 @@ from qtpy.QtWidgets import (
     QHeaderView,
     QSplitter,
     QFileDialog,
+    QDialog,
 )
-from qtpy.QtCore import Qt, QThread, Signal
+from qtpy.QtCore import Qt, QThread, Signal, QTimer
 from qtpy.QtGui import QFont, QColor
 
 from vibeslurm.slurm import SlurmCommands, SlurmError
+
+
+class LogTailDialog(QDialog):
+    """Dialog for tailing job output files in real-time."""
+
+    def __init__(self, job_id: str, stdout_path: str, stderr_path: str, parent=None):
+        super().__init__(parent)
+        self.job_id = job_id
+        self.stdout_path = stdout_path
+        self.stderr_path = stderr_path
+        self.stdout_pos = 0
+        self.stderr_pos = 0
+
+        self.init_ui()
+
+        # Set up timer to update logs
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self.update_logs)
+        self.timer.start(1000)  # Update every second
+
+    def init_ui(self):
+        """Initialize the dialog UI."""
+        self.setWindowTitle(f"Live Logs - Job {self.job_id}")
+        self.setMinimumSize(800, 600)
+
+        layout = QVBoxLayout(self)
+
+        # Info label
+        info_label = QLabel(f"Job ID: {self.job_id}")
+        info_label.setStyleSheet("font-weight: bold;")
+        layout.addWidget(info_label)
+
+        # StdOut section
+        stdout_group = QGroupBox("Standard Output")
+        stdout_layout = QVBoxLayout()
+
+        stdout_path_label = QLabel(f"File: {self.stdout_path or 'Not available'}")
+        stdout_path_label.setStyleSheet("font-size: 9pt; color: gray;")
+        stdout_layout.addWidget(stdout_path_label)
+
+        self.stdout_text = QTextEdit()
+        self.stdout_text.setReadOnly(True)
+        self.stdout_text.setFont(QFont("Courier", 9))
+        self.stdout_text.setPlaceholderText("Waiting for output...")
+        stdout_layout.addWidget(self.stdout_text)
+
+        stdout_group.setLayout(stdout_layout)
+        layout.addWidget(stdout_group)
+
+        # StdErr section
+        stderr_group = QGroupBox("Standard Error")
+        stderr_layout = QVBoxLayout()
+
+        stderr_path_label = QLabel(f"File: {self.stderr_path or 'Not available'}")
+        stderr_path_label.setStyleSheet("font-size: 9pt; color: gray;")
+        stderr_layout.addWidget(stderr_path_label)
+
+        self.stderr_text = QTextEdit()
+        self.stderr_text.setReadOnly(True)
+        self.stderr_text.setFont(QFont("Courier", 9))
+        self.stderr_text.setPlaceholderText("Waiting for errors...")
+        stderr_layout.addWidget(self.stderr_text)
+
+        stderr_group.setLayout(stderr_layout)
+        layout.addWidget(stderr_group)
+
+        # Close button
+        close_btn = QPushButton("Close")
+        close_btn.clicked.connect(self.close)
+        layout.addWidget(close_btn)
+
+    def update_logs(self):
+        """Read new content from log files and update displays."""
+        # Update stdout
+        if self.stdout_path:
+            try:
+                with open(self.stdout_path, 'r') as f:
+                    f.seek(self.stdout_pos)
+                    new_content = f.read()
+                    if new_content:
+                        self.stdout_text.append(new_content.rstrip())
+                        self.stdout_pos = f.tell()
+                        # Auto-scroll to bottom
+                        scrollbar = self.stdout_text.verticalScrollBar()
+                        scrollbar.setValue(scrollbar.maximum())
+            except FileNotFoundError:
+                # File doesn't exist yet, that's okay
+                pass
+            except Exception as e:
+                # Only show error once
+                if self.stdout_pos == 0:
+                    self.stdout_text.setPlaceholderText(f"Error reading file: {e}")
+
+        # Update stderr
+        if self.stderr_path:
+            try:
+                with open(self.stderr_path, 'r') as f:
+                    f.seek(self.stderr_pos)
+                    new_content = f.read()
+                    if new_content:
+                        self.stderr_text.append(new_content.rstrip())
+                        self.stderr_pos = f.tell()
+                        # Auto-scroll to bottom
+                        scrollbar = self.stderr_text.verticalScrollBar()
+                        scrollbar.setValue(scrollbar.maximum())
+            except FileNotFoundError:
+                # File doesn't exist yet, that's okay
+                pass
+            except Exception as e:
+                # Only show error once
+                if self.stderr_pos == 0:
+                    self.stderr_text.setPlaceholderText(f"Error reading file: {e}")
+
+    def closeEvent(self, event):
+        """Clean up when dialog is closed."""
+        self.timer.stop()
+        super().closeEvent(event)
 
 
 class SlurmWorker(QThread):
@@ -150,6 +268,11 @@ class MainWindow(QMainWindow):
         self.stderr_btn = QPushButton("View StdErr")
         self.stderr_btn.clicked.connect(self.on_view_stderr)
         buttons_layout.addWidget(self.stderr_btn)
+
+        self.tail_logs_btn = QPushButton("Tail Logs")
+        self.tail_logs_btn.clicked.connect(self.on_tail_logs)
+        self.tail_logs_btn.setStyleSheet("background-color: #5bc0de; color: white;")
+        buttons_layout.addWidget(self.tail_logs_btn)
 
         self.cancel_all_btn = QPushButton("Cancel All Jobs")
         self.cancel_all_btn.clicked.connect(self.on_scancel_all)
@@ -475,3 +598,28 @@ class MainWindow(QMainWindow):
         self.append_output("🖥️ Getting cluster information...\n")
         cmd_name = "sinfo"
         self.run_slurm_command(cmd_name, self.slurm.sinfo)
+
+    def on_tail_logs(self):
+        """Handle tail logs button click."""
+        selected_rows = self.job_table.selectedIndexes()
+        if not selected_rows:
+            QMessageBox.warning(self, "Input Error", "Please select a job from the table")
+            return
+
+        row = selected_rows[0].row()
+        job_id_item = self.job_table.item(row, 0)
+        if not job_id_item:
+            return
+
+        job_id = job_id_item.text()
+
+        try:
+            # Get output file paths
+            stdout_path, stderr_path = self.slurm.get_job_output_files(job_id)
+
+            # Create and show the tail dialog
+            tail_dialog = LogTailDialog(job_id, stdout_path, stderr_path, self)
+            tail_dialog.show()  # Use show() instead of exec() to allow multiple dialogs
+
+        except Exception as e:
+            QMessageBox.warning(self, "Error", f"Could not get log files for job {job_id}:\n{str(e)}")
