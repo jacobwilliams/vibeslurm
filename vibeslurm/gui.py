@@ -1,6 +1,8 @@
 """Main GUI window for vibeslurm."""
 
 import getpass
+import os
+from datetime import datetime
 
 from qtpy.QtWidgets import (
     QMainWindow,
@@ -48,48 +50,59 @@ class LogTailDialog(QDialog):
     def init_ui(self):
         """Initialize the dialog UI."""
         self.setWindowTitle(f"Live Logs - Job {self.job_id}")
-        self.setMinimumSize(800, 600)
+        self.setMinimumSize(600, 400)
 
         layout = QVBoxLayout(self)
 
-        # Info label
-        info_label = QLabel(f"Job ID: {self.job_id}")
-        info_label.setStyleSheet("font-weight: bold;")
-        layout.addWidget(info_label)
+        # Create splitter for resizable sections
+        splitter = QSplitter(Qt.Vertical)
 
         # StdOut section
         stdout_group = QGroupBox("Standard Output")
         stdout_layout = QVBoxLayout()
 
         stdout_path_label = QLabel(f"File: {self.stdout_path or 'Not available'}")
-        stdout_path_label.setStyleSheet("font-size: 9pt; color: gray;")
+        stdout_path_label.setStyleSheet("font-size: 12pt; color: gray;")
         stdout_layout.addWidget(stdout_path_label)
+
+        self.stdout_mtime_label = QLabel("Last modified: N/A")
+        self.stdout_mtime_label.setStyleSheet("font-size: 12pt; color: gray;")
+        stdout_layout.addWidget(self.stdout_mtime_label)
 
         self.stdout_text = QTextEdit()
         self.stdout_text.setReadOnly(True)
-        self.stdout_text.setFont(QFont("Courier", 9))
+        self.stdout_text.setFont(QFont("Courier", 12))
         self.stdout_text.setPlaceholderText("Waiting for output...")
         stdout_layout.addWidget(self.stdout_text)
 
         stdout_group.setLayout(stdout_layout)
-        layout.addWidget(stdout_group)
+        splitter.addWidget(stdout_group)
 
         # StdErr section
         stderr_group = QGroupBox("Standard Error")
         stderr_layout = QVBoxLayout()
 
         stderr_path_label = QLabel(f"File: {self.stderr_path or 'Not available'}")
-        stderr_path_label.setStyleSheet("font-size: 9pt; color: gray;")
+        stderr_path_label.setStyleSheet("font-size: 12pt; color: gray;")
         stderr_layout.addWidget(stderr_path_label)
+
+        self.stderr_mtime_label = QLabel("Last modified: N/A")
+        self.stderr_mtime_label.setStyleSheet("font-size: 12pt; color: gray;")
+        stderr_layout.addWidget(self.stderr_mtime_label)
 
         self.stderr_text = QTextEdit()
         self.stderr_text.setReadOnly(True)
-        self.stderr_text.setFont(QFont("Courier", 9))
+        self.stderr_text.setFont(QFont("Courier", 12))
         self.stderr_text.setPlaceholderText("Waiting for errors...")
         stderr_layout.addWidget(self.stderr_text)
 
         stderr_group.setLayout(stderr_layout)
-        layout.addWidget(stderr_group)
+        splitter.addWidget(stderr_group)
+
+        # Set initial splitter sizes (50/50 split)
+        splitter.setSizes([200, 200])
+
+        layout.addWidget(splitter)
 
         # Close button
         close_btn = QPushButton("Close")
@@ -101,6 +114,11 @@ class LogTailDialog(QDialog):
         # Update stdout
         if self.stdout_path:
             try:
+                # Update modification time
+                mtime = os.path.getmtime(self.stdout_path)
+                mtime_str = datetime.fromtimestamp(mtime).strftime("%Y-%m-%d %H:%M:%S")
+                self.stdout_mtime_label.setText(f"Last modified: {mtime_str}")
+
                 with open(self.stdout_path, 'r') as f:
                     f.seek(self.stdout_pos)
                     new_content = f.read()
@@ -121,6 +139,11 @@ class LogTailDialog(QDialog):
         # Update stderr
         if self.stderr_path:
             try:
+                # Update modification time
+                mtime = os.path.getmtime(self.stderr_path)
+                mtime_str = datetime.fromtimestamp(mtime).strftime("%Y-%m-%d %H:%M:%S")
+                self.stderr_mtime_label.setText(f"Last modified: {mtime_str}")
+
                 with open(self.stderr_path, 'r') as f:
                     f.seek(self.stderr_pos)
                     new_content = f.read()
