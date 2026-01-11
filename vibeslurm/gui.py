@@ -178,6 +178,7 @@ class MainWindow(QMainWindow):
 
         if job_ids:
             self.job_id_input.addItems(job_ids)
+            self.job_id_input.setCurrentIndex(0)
             self.statusBar().showMessage(f"Found {len(job_ids)} job(s)", 2000)
 
     def on_command_error(self, error: str):
