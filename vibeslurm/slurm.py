@@ -60,6 +60,25 @@ class SlurmCommands:
             raise SlurmError(f"squeue failed: {stderr}")
         return stdout
 
+    def sinfo(self, partition: Optional[str] = None) -> str:
+        """
+        Run sinfo command to show cluster/partition information.
+
+        Args:
+            partition: Filter by partition name (optional)
+
+        Returns:
+            Command output
+        """
+        cmd = ["sinfo"]
+        if partition:
+            cmd.extend(["-p", partition])
+
+        stdout, stderr, returncode = self.run_command(cmd)
+        if returncode != 0:
+            raise SlurmError(f"sinfo failed: {stderr}")
+        return stdout
+
     def scancel(self, job_id: str) -> str:
         """
         Cancel a SLURM job.

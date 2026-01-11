@@ -74,6 +74,12 @@ class MainWindow(QMainWindow):
         submit_action.setShortcut("Ctrl+S")
         submit_action.triggered.connect(self.on_submit_job)
 
+        # Cluster menu
+        cluster_menu = menubar.addMenu("Cluster")
+        cluster_info_action = cluster_menu.addAction("View Cluster Info")
+        cluster_info_action.setShortcut("Ctrl+I")
+        cluster_info_action.triggered.connect(self.on_cluster_info)
+
         # View menu
         view_menu = menubar.addMenu("View")
         clear_action = view_menu.addAction("Clear Console")
@@ -463,3 +469,9 @@ class MainWindow(QMainWindow):
                 self.append_output(f"📤 Submitting batch script: {file_path}...\n")
                 cmd_name = f"sbatch {file_path}"
                 self.run_slurm_command(cmd_name, self.slurm.sbatch, file_path)
+
+    def on_cluster_info(self):
+        """Handle cluster info menu action."""
+        self.append_output("🖥️ Getting cluster information...\n")
+        cmd_name = "sinfo"
+        self.run_slurm_command(cmd_name, self.slurm.sinfo)
