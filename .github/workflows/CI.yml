@@ -35,7 +35,7 @@ jobs:
       - name: Compile
         run: |
           pixi run --manifest-path ./env/pixi.toml hatch build
-          pixi run --manifest-path ./env/pixi.toml hatch test
+          pixi run --manifest-path ./env/pixi.toml hatch test --verbose
 
       # - name: Build documentation
       #   run: |
