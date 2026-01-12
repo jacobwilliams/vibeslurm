@@ -22,6 +22,7 @@ from qtpy.QtWidgets import (
     QSplitter,
     QFileDialog,
     QDialog,
+    QCheckBox,
 )
 from qtpy.QtCore import Qt, QThread, Signal, QTimer
 from qtpy.QtGui import QFont, QColor, QFontDatabase
@@ -30,6 +31,7 @@ from vibeslurm.slurm import SlurmCommands, SlurmError
 
 
 FONTSIZE = 12
+AUTO_REFRESH_INTERVAL = 10000  # 10 seconds in milliseconds
 
 class LogTailDialog(QDialog):
     """Dialog for tailing job output files in real-time."""
@@ -205,6 +207,11 @@ class MainWindow(QMainWindow):
         self.slurm = SlurmCommands()
         self.worker = None
         self.current_command = None
+
+        # Set up auto-refresh timer
+        self.refresh_timer = QTimer(self)
+        self.refresh_timer.timeout.connect(self.on_squeue)
+
         self.init_ui()
 
     def init_ui(self):
@@ -252,6 +259,10 @@ class MainWindow(QMainWindow):
         self.squeue_btn = QPushButton("Refresh Queue")
         self.squeue_btn.clicked.connect(self.on_squeue)
         squeue_controls.addWidget(self.squeue_btn)
+
+        self.auto_refresh_checkbox = QCheckBox(f"Auto-refresh ({AUTO_REFRESH_INTERVAL // 1000}s)")
+        self.auto_refresh_checkbox.stateChanged.connect(self.on_auto_refresh_toggle)
+        squeue_controls.addWidget(self.auto_refresh_checkbox)
 
         squeue_layout.addLayout(squeue_controls)
         squeue_group.setLayout(squeue_layout)
@@ -495,6 +506,17 @@ class MainWindow(QMainWindow):
         cmd_name = f"squeue -u {user}" if user else "squeue"
         self.append_output(f"🔄 Running {cmd_name}...\n")
         self.run_slurm_command(cmd_name, self.slurm.squeue, user=user)
+
+    def on_auto_refresh_toggle(self, state):
+        """Handle auto-refresh checkbox toggle."""
+        if self.auto_refresh_checkbox.isChecked():
+            self.refresh_timer.start(AUTO_REFRESH_INTERVAL)
+            self.statusBar().showMessage(f"Auto-refresh enabled ({AUTO_REFRESH_INTERVAL // 1000}s interval)", 2000)
+            # Immediately refresh when enabled
+            self.on_squeue()
+        else:
+            self.refresh_timer.stop()
+            self.statusBar().showMessage("Auto-refresh disabled", 2000)
 
     def on_scancel(self):
         """Handle scancel button click."""
