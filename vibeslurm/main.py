@@ -2,7 +2,7 @@
 
 import sys
 from qtpy.QtWidgets import QApplication
-from vibeslurm.gui import MainWindow
+from .gui import MainWindow
 
 
 def main():

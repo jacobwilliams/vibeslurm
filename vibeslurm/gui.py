@@ -15,7 +15,6 @@ from qtpy.QtWidgets import (
     QLabel,
     QGroupBox,
     QMessageBox,
-    QComboBox,
     QTableWidget,
     QTableWidgetItem,
     QHeaderView,
@@ -25,9 +24,9 @@ from qtpy.QtWidgets import (
     QCheckBox,
 )
 from qtpy.QtCore import Qt, QThread, Signal, QTimer
-from qtpy.QtGui import QFont, QColor, QFontDatabase
+from qtpy.QtGui import QColor, QFontDatabase
 
-from vibeslurm.slurm import SlurmCommands, SlurmError
+from .slurm import SlurmCommands, SlurmError
 
 
 FONTSIZE = 12
