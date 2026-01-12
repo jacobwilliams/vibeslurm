@@ -286,6 +286,7 @@ class MainWindow(QMainWindow):
         self.job_table.setSelectionBehavior(QTableWidget.SelectRows)
         self.job_table.setEditTriggers(QTableWidget.NoEditTriggers)
         self.job_table.setMinimumHeight(150)
+        self.job_table.setSortingEnabled(True)  # Enable sorting by clicking headers
         self.job_table.itemDoubleClicked.connect(self.on_table_double_click)
 
         table_layout.addWidget(self.job_table)
