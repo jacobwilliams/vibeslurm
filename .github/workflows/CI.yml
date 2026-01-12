@@ -1,0 +1,56 @@
+name: Build and Test
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+  workflow_dispatch:
+
+# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up pixi
+        uses: prefix-dev/setup-pixi@v0.9.3
+        with:
+          pixi-version: v0.61.0
+          cache: true
+          manifest-path: env/pixi.toml
+
+      - name: Compile
+        run: |
+          pixi run --manifest-path ./env/pixi.toml hatch build
+          pixi run --manifest-path ./env/pixi.toml hatch test
+
+      # - name: Build documentation
+      #   run: |
+      #     pixi run --manifest-path ./env/pixi.toml ./build_pdoc.sh
+
+      # - name: Upload artifact
+      #   uses: actions/upload-pages-artifact@v3
+      #   with:
+      #     path: html
+
+  # deploy:
+  #   environment:
+  #     name: github-pages
+  #     url: ${{ steps.deployment.outputs.page_url }}
+  #   runs-on: ubuntu-latest
+  #   needs: build
+  #   if: github.ref == 'refs/heads/master'
+  #   steps:
+  #     - name: Deploy to GitHub Pages
+  #       id: deployment
+  #       uses: actions/deploy-pages@v4
