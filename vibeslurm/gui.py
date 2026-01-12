@@ -29,6 +29,8 @@ from qtpy.QtGui import QFont, QColor, QFontDatabase
 from vibeslurm.slurm import SlurmCommands, SlurmError
 
 
+FONTSIZE = 12
+
 class LogTailDialog(QDialog):
     """Dialog for tailing job output files in real-time."""
 
@@ -62,17 +64,17 @@ class LogTailDialog(QDialog):
         stdout_layout = QVBoxLayout()
 
         stdout_path_label = QLabel(f"File: {self.stdout_path or 'Not available'}")
-        stdout_path_label.setStyleSheet("font-size: 12pt; color: gray;")
+        stdout_path_label.setStyleSheet(F"font-size: {FONTSIZE}pt; color: gray;")
         stdout_layout.addWidget(stdout_path_label)
 
         self.stdout_mtime_label = QLabel("Last modified: N/A")
-        self.stdout_mtime_label.setStyleSheet("font-size: 12pt; color: gray;")
+        self.stdout_mtime_label.setStyleSheet(F"font-size: {FONTSIZE}pt; color: gray;")
         stdout_layout.addWidget(self.stdout_mtime_label)
 
         self.stdout_text = QTextEdit()
         self.stdout_text.setReadOnly(True)
         stdout_font = QFontDatabase.systemFont(QFontDatabase.FixedFont)
-        stdout_font.setPointSize(12)
+        stdout_font.setPointSize(FONTSIZE)
         self.stdout_text.setFont(stdout_font)
         self.stdout_text.setPlaceholderText("Waiting for output...")
         stdout_layout.addWidget(self.stdout_text)
@@ -85,17 +87,17 @@ class LogTailDialog(QDialog):
         stderr_layout = QVBoxLayout()
 
         stderr_path_label = QLabel(f"File: {self.stderr_path or 'Not available'}")
-        stderr_path_label.setStyleSheet("font-size: 12pt; color: gray;")
+        stderr_path_label.setStyleSheet(F"font-size: {FONTSIZE}pt; color: gray;")
         stderr_layout.addWidget(stderr_path_label)
 
         self.stderr_mtime_label = QLabel("Last modified: N/A")
-        self.stderr_mtime_label.setStyleSheet("font-size: 12pt; color: gray;")
+        self.stderr_mtime_label.setStyleSheet(F"font-size: {FONTSIZE}pt; color: gray;")
         stderr_layout.addWidget(self.stderr_mtime_label)
 
         self.stderr_text = QTextEdit()
         self.stderr_text.setReadOnly(True)
         stderr_font = QFontDatabase.systemFont(QFontDatabase.FixedFont)
-        stderr_font.setPointSize(12)
+        stderr_font.setPointSize(FONTSIZE)
         self.stderr_text.setFont(stderr_font)
         self.stderr_text.setPlaceholderText("Waiting for errors...")
         stderr_layout.addWidget(self.stderr_text)
@@ -319,7 +321,7 @@ class MainWindow(QMainWindow):
         self.output_text.setReadOnly(True)
         self.output_text.setMinimumHeight(100)
         output_font = QFontDatabase.systemFont(QFontDatabase.FixedFont)
-        output_font.setPointSize(12)
+        output_font.setPointSize(FONTSIZE)
         self.output_text.setFont(output_font)
         output_layout.addWidget(self.output_text)
 
