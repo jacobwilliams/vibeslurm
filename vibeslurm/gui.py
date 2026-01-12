@@ -24,7 +24,7 @@ from qtpy.QtWidgets import (
     QDialog,
 )
 from qtpy.QtCore import Qt, QThread, Signal, QTimer
-from qtpy.QtGui import QFont, QColor
+from qtpy.QtGui import QFont, QColor, QFontDatabase
 
 from vibeslurm.slurm import SlurmCommands, SlurmError
 
@@ -71,7 +71,9 @@ class LogTailDialog(QDialog):
 
         self.stdout_text = QTextEdit()
         self.stdout_text.setReadOnly(True)
-        self.stdout_text.setFont(QFont("Courier", 12))
+        stdout_font = QFontDatabase.systemFont(QFontDatabase.FixedFont)
+        stdout_font.setPointSize(12)
+        self.stdout_text.setFont(stdout_font)
         self.stdout_text.setPlaceholderText("Waiting for output...")
         stdout_layout.addWidget(self.stdout_text)
 
@@ -92,7 +94,9 @@ class LogTailDialog(QDialog):
 
         self.stderr_text = QTextEdit()
         self.stderr_text.setReadOnly(True)
-        self.stderr_text.setFont(QFont("Courier", 12))
+        stderr_font = QFontDatabase.systemFont(QFontDatabase.FixedFont)
+        stderr_font.setPointSize(12)
+        self.stderr_text.setFont(stderr_font)
         self.stderr_text.setPlaceholderText("Waiting for errors...")
         stderr_layout.addWidget(self.stderr_text)
 
@@ -314,7 +318,9 @@ class MainWindow(QMainWindow):
         self.output_text = QTextEdit()
         self.output_text.setReadOnly(True)
         self.output_text.setMinimumHeight(100)
-        self.output_text.setFont(QFont("Courier", 10))
+        output_font = QFontDatabase.systemFont(QFontDatabase.FixedFont)
+        output_font.setPointSize(12)
+        self.output_text.setFont(output_font)
         output_layout.addWidget(self.output_text)
 
         output_group.setLayout(output_layout)
