@@ -32,6 +32,29 @@ from .slurm import SlurmCommands, SlurmError
 FONTSIZE = 12
 AUTO_REFRESH_INTERVAL = 10000  # 10 seconds in milliseconds
 
+
+class AboutDialog(QDialog):
+    """Dialog showing information about VibeSLURM."""
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("About VibeSLURM")
+        self.setMinimumSize(400, 200)
+        layout = QVBoxLayout(self)
+        title = QLabel("<b>VibeSLURM</b>")
+        title.setStyleSheet(f"font-size: {FONTSIZE+4}pt;")
+        layout.addWidget(title)
+        version = QLabel(f"Version: {getattr(__import__('vibeslurm'), '__version__', 'unknown')}")
+        layout.addWidget(version)
+        desc = QLabel("A GUI application for monitoring and managing SLURM jobs.")
+        desc.setWordWrap(True)
+        layout.addWidget(desc)
+        copyright = QLabel("© 2026 VibeSLURM Jacob Williams (MIT License)")
+        copyright.setStyleSheet("color: gray;")
+        layout.addWidget(copyright)
+        close_btn = QPushButton("Close")
+        close_btn.clicked.connect(self.close)
+        layout.addWidget(close_btn)
+
 class LogTailDialog(QDialog):
     """Dialog for tailing job output files in real-time."""
 
@@ -239,6 +262,11 @@ class MainWindow(QMainWindow):
         clear_action.setShortcut("Ctrl+L")
         clear_action.triggered.connect(lambda: self.output_text.clear())
 
+        # Help menu
+        help_menu = menubar.addMenu("Help")
+        about_action = help_menu.addAction("About VibeSLURM")
+        about_action.triggered.connect(self.on_about)
+
         # Central widget
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
@@ -346,6 +374,11 @@ class MainWindow(QMainWindow):
 
         # Status bar
         self.statusBar().showMessage("Ready")
+
+    def on_about(self):
+        """Show the About dialog."""
+        dlg = AboutDialog(self)
+        dlg.exec_()
 
     def append_output(self, text: str):
         """Append text to output and scroll to bottom."""
